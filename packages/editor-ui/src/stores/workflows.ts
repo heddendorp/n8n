@@ -84,7 +84,6 @@ const createEmptyWorkflow = (): IWorkflowDb => ({
 
 export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 	state: (): WorkflowsState => ({
-		workflow: createEmptyWorkflow(),
 		usedCredentials: {},
 		activeWorkflows: [],
 		activeExecutions: [],
@@ -99,9 +98,16 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 		executingNode: null,
 		executionWaitingForWebhook: false,
 		nodeMetadata: {},
+		currentWorkflowId: PLACEHOLDER_EMPTY_WORKFLOW_ID,
 	}),
 	getters: {
 		// Workflow getters
+		workflow(): IWorkflowDb {
+			if (this.currentWorkflowId === PLACEHOLDER_EMPTY_WORKFLOW_ID) {
+				return createEmptyWorkflow();
+			}
+			return this.workflowsById[this.currentWorkflowId];
+		},
 		workflowName(): string {
 			return this.workflow.name;
 		},
@@ -290,15 +296,20 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 			const usersStore = useUsersStore();
 			const settingsStore = useSettingsStore();
 
-			this.workflow = createEmptyWorkflow();
+			// this.workflow = createEmptyWorkflow();
+			this.currentWorkflowId = PLACEHOLDER_EMPTY_WORKFLOW_ID;
 
 			if (settingsStore.isEnterpriseFeatureEnabled(EnterpriseEditionFeature.Sharing)) {
-				Vue.set(this.workflow, 'ownedBy', usersStore.currentUser);
+				// Vue.set(this.workflow, 'ownedBy', usersStore.currentUser);
+				if (usersStore.currentUser) {
+					this.workflow.ownedBy = usersStore.currentUser;
+				}
 			}
 		},
 
 		setWorkflowId(id: string): void {
-			this.workflow.id = id === 'new' ? PLACEHOLDER_EMPTY_WORKFLOW_ID : id;
+			// this.workflow.id = id === 'new' ? PLACEHOLDER_EMPTY_WORKFLOW_ID : id;
+			this.currentWorkflowId = id === 'new' ? PLACEHOLDER_EMPTY_WORKFLOW_ID : id;
 		},
 
 		setUsedCredentials(data: IUsedCredential[]) {
@@ -318,13 +329,12 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 				uiStore.stateIsDirty = true;
 			}
 			this.workflow.name = data.newName;
-
-			if (
-				this.workflow.id !== PLACEHOLDER_EMPTY_WORKFLOW_ID &&
-				this.workflowsById[this.workflow.id]
-			) {
-				this.workflowsById[this.workflow.id].name = data.newName;
-			}
+			// if (
+			// 	this.workflow.id !== PLACEHOLDER_EMPTY_WORKFLOW_ID &&
+			// 	this.workflowsById[this.workflow.id]
+			// ) {
+			// 	this.workflowsById[this.workflow.id].name = data.newName;
+			// }
 		},
 
 		setWorkflowVersionId(versionId: string): void {
@@ -407,9 +417,10 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 			if (index !== -1) {
 				this.activeWorkflows.splice(index, 1);
 			}
-			if (this.workflowsById[workflowId]) {
-				this.workflowsById[workflowId].active = false;
-			}
+			// if (this.workflowsById[workflowId]) {
+			// 	this.workflowsById[workflowId].active = false;
+			// }
+			this.workflow.active = false;
 		},
 
 		async fetchActiveWorkflows(): Promise<string[]> {
@@ -447,57 +458,70 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 		},
 
 		setWorkflowSettings(workflowSettings: IWorkflowSettings): void {
-			Vue.set(this.workflow, 'settings', workflowSettings);
+			// Vue.set(this.workflow, 'settings', workflowSettings);
+			this.workflow.settings = workflowSettings;
 		},
 
 		setWorkflowPinData(pinData: IPinData): void {
-			Vue.set(this.workflow, 'pinData', pinData || {});
+			// Vue.set(this.workflow, 'pinData', pinData || {});
+			this.workflow.pinData = pinData || {};
 			dataPinningEventBus.$emit('pin-data', pinData || {});
 		},
 
 		setWorkflowTagIds(tags: string[]): void {
-			Vue.set(this.workflow, 'tags', tags);
+			// Vue.set(this.workflow, 'tags', tags);
+			this.workflow.tags = tags;
 		},
 
 		addWorkflowTagIds(tags: string[]): void {
-			Vue.set(this.workflow, 'tags', [...new Set([...(this.workflow.tags || []), ...tags])]);
+			// Vue.set(this.workflow, 'tags', [...new Set([...(this.workflow.tags || []), ...tags])]);
+			this.workflow.tags = [...new Set([...(this.workflow.tags || []), ...tags])];
 		},
 
 		removeWorkflowTagId(tagId: string): void {
 			const tags = this.workflow.tags as string[];
 			const updated = tags.filter((id: string) => id !== tagId);
-			Vue.set(this.workflow, 'tags', updated);
+			// Vue.set(this.workflow, 'tags', updated);
+			this.workflow.tags = updated;
 		},
 
 		setWorkflow(workflow: IWorkflowDb): void {
-			Vue.set(this, 'workflow', workflow);
+			// Vue.set(this, 'workflow', workflow);
+			this.workflowsById[workflow.id] = workflow;
+			this.currentWorkflowId = workflow.id;
 
-			if (!this.workflow.hasOwnProperty('active')) {
-				Vue.set(this.workflow, 'active', false);
-			}
-			if (!this.workflow.hasOwnProperty('connections')) {
-				Vue.set(this.workflow, 'connections', {});
-			}
-			if (!this.workflow.hasOwnProperty('createdAt')) {
-				Vue.set(this.workflow, 'createdAt', -1);
-			}
-			if (!this.workflow.hasOwnProperty('updatedAt')) {
-				Vue.set(this.workflow, 'updatedAt', -1);
-			}
-			if (!this.workflow.hasOwnProperty('id')) {
-				Vue.set(this.workflow, 'id', PLACEHOLDER_EMPTY_WORKFLOW_ID);
-			}
-			if (!this.workflow.hasOwnProperty('nodes')) {
-				Vue.set(this.workflow, 'nodes', []);
-			}
-			if (!this.workflow.hasOwnProperty('settings')) {
-				Vue.set(this.workflow, 'settings', {});
-			}
+			// if (!this.workflow.hasOwnProperty('active')) {
+			// 	// Vue.set(this.workflow, 'active', false);
+			// 	this.workflow.active = false;
+			// }
+			// if (!this.workflow.hasOwnProperty('connections')) {
+			// 	// Vue.set(this.workflow, 'connections', {});
+			// 	this.workflow.connections = {};
+			// }
+			// if (!this.workflow.hasOwnProperty('createdAt')) {
+			// 	// Vue.set(this.workflow, 'createdAt', -1);
+			// 	this.workflow.createdAt = -1;
+			// }
+			// if (!this.workflow.hasOwnProperty('updatedAt')) {
+			// 	// Vue.set(this.workflow, 'updatedAt', -1);
+			// 	this.workflow.updatedAt = -1;
+			// }
+			// if (!this.workflow.hasOwnProperty('id')) {
+			// 	// Vue.set(this.workflow, 'id', PLACEHOLDER_EMPTY_WORKFLOW_ID);
+			// 	this.currentWorkflowId = PLACEHOLDER_EMPTY_WORKFLOW_ID;
+			// }
+			// if (!this.workflow.hasOwnProperty('nodes')) {
+			// 	Vue.set(this.workflow, 'nodes', []);
+			// }
+			// if (!this.workflow.hasOwnProperty('settings')) {
+			// 	Vue.set(this.workflow, 'settings', {});
+			// }
 		},
 
 		pinData(payload: { node: INodeUi; data: INodeExecutionData[] }): void {
 			if (!this.workflow.pinData) {
-				Vue.set(this.workflow, 'pinData', {});
+				// Vue.set(this.workflow, 'pinData', {});
+				this.workflow.pinData = {};
 			}
 
 			if (!Array.isArray(payload.data)) {
@@ -508,7 +532,8 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 				isJsonKeyObject(item) ? item : { json: item },
 			);
 
-			Vue.set(this.workflow.pinData!, payload.node.name, storedPinData);
+			// Vue.set(this.workflow.pinData!, payload.node.name, storedPinData);
+			this.workflow.pinData[payload.node.name] = storedPinData;
 
 			const uiStore = useUIStore();
 			uiStore.stateIsDirty = true;
@@ -518,10 +543,12 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 
 		unpinData(payload: { node: INodeUi }): void {
 			if (!this.workflow.pinData) {
-				Vue.set(this.workflow, 'pinData', {});
+				// Vue.set(this.workflow, 'pinData', {});
+				this.workflow.pinData = {};
 			}
 
-			Vue.set(this.workflow.pinData!, payload.node.name, undefined);
+			// Vue.set(this.workflow.pinData!, payload.node.name, undefined);
+			this.workflow.pinData[payload.node.name] = [];
 			delete this.workflow.pinData![payload.node.name];
 
 			const uiStore = useUIStore();
@@ -546,10 +573,12 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 
 			// Check if source node and type exist already and if not add them
 			if (!this.workflow.connections.hasOwnProperty(sourceData.node)) {
-				Vue.set(this.workflow.connections, sourceData.node, {});
+				// Vue.set(this.workflow.connections, sourceData.node, {});
+				this.workflow.connections[sourceData.node] = {};
 			}
 			if (!this.workflow.connections[sourceData.node].hasOwnProperty(sourceData.type)) {
-				Vue.set(this.workflow.connections[sourceData.node], sourceData.type, []);
+				// Vue.set(this.workflow.connections[sourceData.node], sourceData.type, []);
+				this.workflow.connections[sourceData.node][sourceData.type] = [];
 			}
 			if (
 				this.workflow.connections[sourceData.node][sourceData.type].length <
@@ -697,8 +726,10 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 			Vue.delete(this.nodeMetadata, nameData.old);
 
 			if (this.workflow.pinData && this.workflow.pinData.hasOwnProperty(nameData.old)) {
-				Vue.set(this.workflow.pinData, nameData.new, this.workflow.pinData[nameData.old]);
-				Vue.delete(this.workflow.pinData, nameData.old);
+				// Vue.set(this.workflow.pinData, nameData.new, this.workflow.pinData[nameData.old]);
+				// Vue.delete(this.workflow.pinData, nameData.old);
+				this.workflow.pinData[nameData.new] = this.workflow.pinData[nameData.old];
+				delete this.workflow.pinData[nameData.old];
 			}
 
 			this.workflowExecutionPairedItemMappings = getPairedItemsMapping(this.workflowExecutionData);
@@ -738,6 +769,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 		},
 
 		addNode(nodeData: INodeUi): void {
+			console.log(`ADDING NODE: ${nodeData.name}`);
 			if (!nodeData.hasOwnProperty('name')) {
 				// All nodes have to have a name
 				// TODO: Check if there is an error or whatever that is supposed to be returned
@@ -755,7 +787,8 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 			Vue.delete(this.nodeMetadata, node.name);
 
 			if (this.workflow.pinData && this.workflow.pinData.hasOwnProperty(node.name)) {
-				Vue.delete(this.workflow.pinData, node.name);
+				// Vue.delete(this.workflow.pinData, node.name);
+				delete this.workflow.pinData[node.name];
 			}
 
 			for (let i = 0; i < this.workflow.nodes.length; i++) {
@@ -775,7 +808,8 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, {
 			}
 
 			if (data.removePinData) {
-				Vue.set(this.workflow, 'pinData', {});
+				// Vue.set(this.workflow, 'pinData', {});
+				this.workflow.pinData = {};
 			}
 
 			this.workflow.nodes.splice(0, this.workflow.nodes.length);

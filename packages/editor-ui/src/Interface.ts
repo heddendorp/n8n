@@ -999,10 +999,10 @@ export interface WorkflowsState {
 	nodeMetadata: NodeMetadataMap;
 	subWorkflowExecutionError: Error | null;
 	usedCredentials: Record<string, IUsedCredential>;
-	workflow: IWorkflowDb;
 	workflowExecutionData: IExecutionResponse | null;
 	workflowExecutionPairedItemMappings: { [itemId: string]: Set<string> };
 	workflowsById: IWorkflowsMap;
+	currentWorkflowId: string;
 }
 
 export interface RootState {
