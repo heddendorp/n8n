@@ -1,18 +1,19 @@
 <template>
-	<div ref="codeNodeEditor" class="ph-no-capture"></div>
+	<div ref="codeNodeEditor" :class="{ [$style['max-height']]: true }" class="ph-no-capture"></div>
 </template>
 
 <script lang="ts">
 import mixins from 'vue-typed-mixins';
 
-import { Compartment, EditorState } from '@codemirror/state';
+import { Compartment, EditorState, EditorStateConfig } from '@codemirror/state';
 import { EditorView, ViewUpdate } from '@codemirror/view';
 import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
 
 import { baseExtensions } from './baseExtensions';
 import { linterExtension } from './linter';
 import { completerExtension } from './completer';
-import { CODE_NODE_EDITOR_THEME } from './theme';
+import { codeNodeEditorTheme } from './theme';
 import { workflowHelpers } from '@/mixins/workflowHelpers'; // for json field completions
 import { codeNodeEditorEventBus } from '@/event-bus/code-node-editor-event-bus';
 import { CODE_NODE_TYPE } from '@/constants';
@@ -32,14 +33,30 @@ export default mixins(linterExtension, completerExtension, workflowHelpers).exte
 			type: Boolean,
 			default: false,
 		},
+		maxHeight: {
+			type: Boolean,
+			default: false,
+		},
+		value: {
+			type: String,
+		},
 		jsCode: {
 			type: String,
+		},
+		defaultValue: {
+			type: String,
+		},
+		language: {
+			type: String,
+			default: 'javaScript',
+			validator: (value: string): boolean => ['javaScript', 'json'].includes(value),
 		},
 	},
 	data() {
 		return {
 			editor: null as EditorView | null,
 			linterCompartment: new Compartment(),
+			isDefault: false,
 		};
 	},
 	watch: {
@@ -79,9 +96,9 @@ export default mixins(linterExtension, completerExtension, workflowHelpers).exte
 		refreshPlaceholder() {
 			if (!this.editor) return;
 
-			if (!this.content.trim() || this.content.trim() === this.previousPlaceholder) {
+			if (!this.content.trim() || this.isDefault) {
 				this.editor.dispatch({
-					changes: { from: 0, to: this.content.length, insert: this.placeholder },
+					changes: { from: 0, to: this.content.length, insert: this.defaultValue },
 				});
 			}
 		},
@@ -145,25 +162,50 @@ export default mixins(linterExtension, completerExtension, workflowHelpers).exte
 				if (!viewUpdate.docChanged) return;
 
 				this.trackCompletion(viewUpdate);
-
 				this.$emit('valueChanged', this.content);
+				if (this.content === this.defaultValue) {
+					this.isDefault = true;
+				} else {
+					this.isDefault = false;
+				}
 			}),
 		];
 
 		// empty on first load, default param value
-		if (this.jsCode === '') {
-			this.$emit('valueChanged', this.placeholder);
+		if (this.value === '') {
+			this.$emit('valueChanged', this.defaultValue);
 		}
 
-		const state = EditorState.create({
-			doc: this.jsCode === '' ? this.placeholder : this.jsCode,
-			extensions: [
-				...baseExtensions,
-				...stateBasedExtensions,
-				CODE_NODE_EDITOR_THEME,
-				javascript(),
-				this.autocompletionExtension(),
-			],
+		this.isDefault = this.value === this.defaultValue;
+		const value = this.value === '' ? this.defaultValue : this.value;
+		let editorSettings: EditorStateConfig;
+		if (this.language === 'json') {
+			editorSettings = {
+				doc: value,
+				extensions: [
+					...baseExtensions,
+					...stateBasedExtensions,
+					codeNodeEditorTheme({ maxHeight: this.maxHeight }),
+					json(),
+				],
+			};
+		} else {
+			editorSettings = {
+				doc: this.jsCode === '' ? this.placeholder : this.jsCode,
+				extensions: [
+					this.linterCompartment.of(this.linterExtension()),
+					...baseExtensions,
+					...stateBasedExtensions,
+					codeNodeEditorTheme({ maxHeight: this.maxHeight }),
+					javascript(),
+					this.autocompletionExtension(),
+				],
+			};
+		}
+		const state = EditorState.create(editorSettings);
+		this.editor = new EditorView({
+			parent: this.$refs.codeNodeEditor as HTMLDivElement,
+			state,
 		});
 
 		this.editor = new EditorView({
@@ -174,4 +216,8 @@ export default mixins(linterExtension, completerExtension, workflowHelpers).exte
 });
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" module>
+.max-height {
+	height: 100%;
+}
+</style>

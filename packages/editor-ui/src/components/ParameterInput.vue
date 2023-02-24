@@ -54,6 +54,7 @@
 				<code-edit
 					v-if="codeEditDialogVisible"
 					:value="value"
+					:defaultValue="parameter.default"
 					:parameter="parameter"
 					:type="editorType"
 					:codeAutocomplete="codeAutocomplete"
@@ -76,6 +77,8 @@
 					v-if="getArgument('editor') === 'codeNodeEditor' && isCodeNode(node)"
 					:mode="node.parameters.mode"
 					:jsCode="node.parameters.jsCode"
+					:value="value"
+					:defaultValue="parameter.default"
 					:isReadOnly="isReadOnly"
 					@valueChanged="valueChangedDebounced"
 				/>
