@@ -104,6 +104,9 @@ class WorkflowRunnerProcess {
 
 		this.startedAt = new Date();
 
+		// Init db since we need to read the license.
+		await Db.init();
+
 		const userSettings = await UserSettings.prepareUserSettings();
 
 		const loadNodesAndCredentials = Container.get(LoadNodesAndCredentials);
@@ -123,9 +126,6 @@ class WorkflowRunnerProcess {
 
 		const binaryDataConfig = config.getEnv('binaryDataManager');
 		await BinaryDataManager.init(binaryDataConfig);
-
-		// Init db since we need to read the license.
-		await Db.init();
 
 		const license = getLicense();
 		await license.init(instanceId);
