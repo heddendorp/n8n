@@ -800,7 +800,7 @@ export class HttpRequestV3 implements INodeType {
 											type: 'boolean',
 											default: false,
 											description:
-												'Whether to return the full reponse (headers and response status code) data instead of only the body',
+												'Whether to return the full response (headers and response status code) data instead of only the body',
 										},
 										{
 											displayName: 'Never Error',
@@ -881,7 +881,7 @@ export class HttpRequestV3 implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 
-		const fullReponseProperties = ['body', 'headers', 'statusCode', 'statusMessage'];
+		const fullResponseProperties = ['body', 'headers', 'statusCode', 'statusMessage'];
 
 		let authentication;
 
@@ -1400,7 +1400,7 @@ export class HttpRequestV3 implements INodeType {
 
 				if (fullResponse) {
 					const returnItem: IDataObject = {};
-					for (const property of fullReponseProperties) {
+					for (const property of fullResponseProperties) {
 						if (property === 'body') {
 							continue;
 						}
@@ -1431,7 +1431,7 @@ export class HttpRequestV3 implements INodeType {
 				) as string;
 				if (fullResponse) {
 					const returnItem: IDataObject = {};
-					for (const property of fullReponseProperties) {
+					for (const property of fullResponseProperties) {
 						if (property === 'body') {
 							returnItem[outputPropertyName] = toText(response![property]);
 							continue;
@@ -1459,7 +1459,7 @@ export class HttpRequestV3 implements INodeType {
 				// responseFormat: 'json'
 				if (requestOptions.resolveWithFullResponse === true) {
 					const returnItem: IDataObject = {};
-					for (const property of fullReponseProperties) {
+					for (const property of fullResponseProperties) {
 						returnItem[property] = response![property];
 					}
 
