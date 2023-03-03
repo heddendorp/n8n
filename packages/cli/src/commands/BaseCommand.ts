@@ -40,10 +40,6 @@ export abstract class BaseCommand extends Command {
 		process.once('SIGTERM', async () => this.stopProcess());
 		process.once('SIGINT', async () => this.stopProcess());
 
-		await Db.init().catch(async (error: Error) =>
-			this.exitWithCrash('There was an error initializing DB', error),
-		);
-
 		// Make sure the settings exist
 		this.userSettings = await UserSettings.prepareUserSettings();
 
@@ -56,6 +52,10 @@ export abstract class BaseCommand extends Command {
 		const instanceId = this.userSettings.instanceId ?? '';
 		await Container.get(PostHogClient).init(instanceId);
 		await Container.get(InternalHooks).init(instanceId);
+
+		await Db.init().catch(async (error: Error) =>
+			this.exitWithCrash('There was an error initializing DB', error),
+		);
 	}
 
 	protected async stopProcess() {

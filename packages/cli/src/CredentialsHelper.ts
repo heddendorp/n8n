@@ -453,6 +453,13 @@ export class CredentialsHelper extends ICredentialsHelper {
 		data: ICredentialDataDecryptedObject,
 	): Promise<void> {
 		const credentials = await this.getCredentials(nodeCredentials, type);
+
+		if (!Db.isInitialized) {
+			// The first time executeWorkflow gets called the Database has
+			// to get initialized first
+			await Db.init();
+		}
+
 		credentials.setData(data, this.encryptionKey);
 		const newCredentialsData = credentials.getDataToSave() as ICredentialsDb;
 
