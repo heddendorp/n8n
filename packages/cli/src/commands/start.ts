@@ -252,11 +252,10 @@ export class Start extends BaseCommand {
 					// Optimistic approach - stop if any installation fails
 					// eslint-disable-next-line no-restricted-syntax
 					for (const missingPackage of missingPackages) {
-						// eslint-disable-next-line no-await-in-loop
-						void (await this.loadNodesAndCredentials.installNpmModule(
+						await this.loadNodesAndCredentials.installNpmModule(
 							missingPackage.packageName,
 							missingPackage.version,
-						));
+						);
 						missingPackages.delete(missingPackage);
 					}
 					LoggerProxy.info('Packages reinstalled successfully. Resuming regular initialization.');

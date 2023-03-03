@@ -120,7 +120,13 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 
 	private async loadNodesFromInstalledPackages(): Promise<void> {
 		const nodeModulesDir = path.join(this.downloadFolder, 'node_modules');
-		await fsAccess(nodeModulesDir);
+		try {
+			await fsAccess(nodeModulesDir);
+		} catch {
+			// Folder does not exist so ignore and return
+			return;
+		}
+
 		const installedPackagePaths = (await getInstalledPackageNames()).map((packageName) =>
 			path.join(nodeModulesDir, packageName),
 		);
