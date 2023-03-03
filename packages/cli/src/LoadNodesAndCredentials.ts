@@ -1,4 +1,5 @@
 import uniq from 'lodash.uniq';
+import glob from 'fast-glob';
 import type { DirectoryLoader, Types } from 'n8n-core';
 import {
 	CUSTOM_EXTENSION_ENV,
@@ -18,7 +19,7 @@ import type {
 import { LoggerProxy, ErrorReporterProxy as ErrorReporter } from 'n8n-workflow';
 
 import { createWriteStream } from 'fs';
-import { access as fsAccess, mkdir } from 'fs/promises';
+import { mkdir } from 'fs/promises';
 import path from 'path';
 import config from '@/config';
 import type { InstalledPackages } from '@db/entities/InstalledPackages';
@@ -33,7 +34,6 @@ import {
 } from '@/constants';
 import { CredentialsOverwrites } from '@/CredentialsOverwrites';
 import { Service } from 'typedi';
-import { getInstalledPackageNames } from '@/CommunityNodes/packageModel';
 
 @Service()
 export class LoadNodesAndCredentials implements INodesAndCredentials {
@@ -120,16 +120,11 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 
 	private async loadNodesFromInstalledPackages(): Promise<void> {
 		const nodeModulesDir = path.join(this.downloadFolder, 'node_modules');
-		try {
-			await fsAccess(nodeModulesDir);
-		} catch {
-			// Folder does not exist so ignore and return
-			return;
-		}
-
-		const installedPackagePaths = (await getInstalledPackageNames()).map((packageName) =>
-			path.join(nodeModulesDir, packageName),
-		);
+		const installedPackagePaths = await glob('n8n-nodes-*', {
+			cwd: nodeModulesDir,
+			deep: 1,
+			onlyDirectories: true,
+		});
 
 		for (const packagePath of installedPackagePaths) {
 			try {

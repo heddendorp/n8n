@@ -17,12 +17,6 @@ export async function isPackageInstalled(packageName: string): Promise<boolean> 
 	});
 }
 
-export async function getInstalledPackageNames(): Promise<Array<InstalledPackages['packageName']>> {
-	return Db.collections.InstalledPackages.find({
-		select: ['packageName'],
-	}).then((packages) => packages.map(({ packageName }) => packageName));
-}
-
 export async function getAllInstalledPackages(): Promise<InstalledPackages[]> {
 	return Db.collections.InstalledPackages.find({ relations: ['installedNodes'] });
 }
