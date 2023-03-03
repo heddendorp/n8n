@@ -151,10 +151,23 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		}
 	}
 
-	async installNpmModule(packageName: string, version?: string): Promise<InstalledPackages> {
-		const command = `npm install ${packageName}${version ? `@${version}` : ''}`;
+	private async installOrUpdateNpmModule(
+		packageName: string,
+		options: { version?: string } | { installedPackage: InstalledPackages },
+	) {
+		const isUpdate = 'installedPackage' in options;
+		const command = isUpdate
+			? `npm update ${packageName}`
+			: `npm install ${packageName}${options.version ? `@${options.version}` : ''}`;
 
-		await executeCommand(command);
+		try {
+			await executeCommand(command);
+		} catch (error) {
+			if (error instanceof Error && error.message === RESPONSE_ERROR_MESSAGES.PACKAGE_NOT_FOUND) {
+				throw new Error(`The npm package "${packageName}" could not be found.`);
+			}
+			throw error;
+		}
 
 		const finalNodeUnpackedPath = path.join(this.downloadFolder, 'node_modules', packageName);
 
@@ -166,14 +179,17 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 			const removeCommand = `npm remove ${packageName}`;
 			try {
 				await executeCommand(removeCommand);
-			} catch (_) {}
+			} catch {}
 			throw new Error(RESPONSE_ERROR_MESSAGES.PACKAGE_LOADING_FAILED, { cause: error });
 		}
 
 		if (loader.loadedNodes.length > 0) {
 			// Save info to DB
 			try {
-				const { persistInstalledPackageData } = await import('@/CommunityNodes/packageModel');
+				const { persistInstalledPackageData, removePackageFromDatabase } = await import(
+					'@/CommunityNodes/packageModel'
+				);
+				if (isUpdate) await removePackageFromDatabase(options.installedPackage);
 				const installedPackage = await persistInstalledPackageData(loader);
 				await this.postProcessLoaders();
 				await this.generateTypesForFrontend();
@@ -194,6 +210,10 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 
 			throw new Error(RESPONSE_ERROR_MESSAGES.PACKAGE_DOES_NOT_CONTAIN_NODES);
 		}
+	}
+
+	async installNpmModule(packageName: string, version?: string): Promise<InstalledPackages> {
+		return this.installOrUpdateNpmModule(packageName, { version });
 	}
 
 	async removeNpmModule(packageName: string, installedPackage: InstalledPackages): Promise<void> {
@@ -217,57 +237,7 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		packageName: string,
 		installedPackage: InstalledPackages,
 	): Promise<InstalledPackages> {
-		const command = `npm i ${packageName}@latest`;
-
-		try {
-			await executeCommand(command);
-		} catch (error) {
-			if (error instanceof Error && error.message === RESPONSE_ERROR_MESSAGES.PACKAGE_NOT_FOUND) {
-				throw new Error(`The npm package "${packageName}" could not be found.`);
-			}
-			throw error;
-		}
-
-		const finalNodeUnpackedPath = path.join(this.downloadFolder, 'node_modules', packageName);
-
-		let loader: PackageDirectoryLoader;
-		try {
-			loader = await this.runDirectoryLoader(PackageDirectoryLoader, finalNodeUnpackedPath);
-		} catch (error) {
-			// Remove this package since loading it failed
-			const removeCommand = `npm remove ${packageName}`;
-			try {
-				await executeCommand(removeCommand);
-			} catch (_) {}
-			throw new Error(RESPONSE_ERROR_MESSAGES.PACKAGE_LOADING_FAILED, { cause: error });
-		}
-
-		if (loader.loadedNodes.length > 0) {
-			// Save info to DB
-			try {
-				const { persistInstalledPackageData, removePackageFromDatabase } = await import(
-					'@/CommunityNodes/packageModel'
-				);
-				await removePackageFromDatabase(installedPackage);
-				const newlyInstalledPackage = await persistInstalledPackageData(loader);
-				await this.postProcessLoaders();
-				await this.generateTypesForFrontend();
-				return newlyInstalledPackage;
-			} catch (error) {
-				LoggerProxy.error('Failed to save installed packages and nodes', {
-					error: error as Error,
-					packageName,
-				});
-				throw error;
-			}
-		} else {
-			// Remove this package since it contains no loadable nodes
-			const removeCommand = `npm remove ${packageName}`;
-			try {
-				await executeCommand(removeCommand);
-			} catch {}
-			throw new Error(RESPONSE_ERROR_MESSAGES.PACKAGE_DOES_NOT_CONTAIN_NODES);
-		}
+		return this.installOrUpdateNpmModule(packageName, { installedPackage });
 	}
 
 	/**
