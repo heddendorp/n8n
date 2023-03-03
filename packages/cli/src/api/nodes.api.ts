@@ -117,7 +117,7 @@ nodesController.post(
 		let installedPackage: InstalledPackages;
 
 		try {
-			installedPackage = await Container.get(LoadNodesAndCredentials).loadNpmModule(
+			installedPackage = await Container.get(LoadNodesAndCredentials).installNpmModule(
 				parsed.packageName,
 				parsed.version,
 			);

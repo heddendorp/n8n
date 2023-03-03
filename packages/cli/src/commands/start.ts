@@ -253,7 +253,7 @@ export class Start extends BaseCommand {
 					// eslint-disable-next-line no-restricted-syntax
 					for (const missingPackage of missingPackages) {
 						// eslint-disable-next-line no-await-in-loop
-						void (await this.loadNodesAndCredentials.loadNpmModule(
+						void (await this.loadNodesAndCredentials.installNpmModule(
 							missingPackage.packageName,
 							missingPackage.version,
 						));

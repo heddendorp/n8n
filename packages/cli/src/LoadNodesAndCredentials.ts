@@ -18,7 +18,7 @@ import type {
 import { LoggerProxy, ErrorReporterProxy as ErrorReporter } from 'n8n-workflow';
 
 import { createWriteStream } from 'fs';
-import { access as fsAccess, mkdir, readdir as fsReaddir, stat as fsStat } from 'fs/promises';
+import { access as fsAccess, mkdir } from 'fs/promises';
 import path from 'path';
 import config from '@/config';
 import type { InstalledPackages } from '@db/entities/InstalledPackages';
@@ -33,6 +33,7 @@ import {
 } from '@/constants';
 import { CredentialsOverwrites } from '@/CredentialsOverwrites';
 import { Service } from 'typedi';
+import { getInstalledPackageNames } from '@/CommunityNodes/packageModel';
 
 @Service()
 export class LoadNodesAndCredentials implements INodesAndCredentials {
@@ -52,6 +53,8 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 
 	logger: ILogger;
 
+	private downloadFolder: string;
+
 	async init() {
 		// Make sure the imported modules can resolve dependencies fine.
 		const delimiter = process.platform === 'win32' ? ';' : ':';
@@ -61,8 +64,10 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-call
 		if (!inTest) module.constructor._initPaths();
 
+		this.downloadFolder = UserSettings.getUserN8nFolderDownloadedNodesPath();
+
 		await this.loadNodesFromBasePackages();
-		await this.loadNodesFromDownloadedPackages();
+		await this.loadNodesFromInstalledPackages();
 		await this.loadNodesFromCustomDirectories();
 		await this.postProcessLoaders();
 		this.injectCustomApiCallOptions();
@@ -113,21 +118,14 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		await this.runDirectoryLoader(LazyPackageDirectoryLoader, NODES_BASE_DIR);
 	}
 
-	private async loadNodesFromDownloadedPackages(): Promise<void> {
-		const nodePackages = [];
-		try {
-			// Read downloaded nodes and credentials
-			const downloadedNodesDir = UserSettings.getUserN8nFolderDownloadedNodesPath();
-			const downloadedNodesDirModules = path.join(downloadedNodesDir, 'node_modules');
-			await fsAccess(downloadedNodesDirModules);
-			const downloadedPackages = await this.getN8nNodePackages(downloadedNodesDirModules);
-			nodePackages.push(...downloadedPackages);
-		} catch (error) {
-			// Folder does not exist so ignore and return
-			return;
-		}
+	private async loadNodesFromInstalledPackages(): Promise<void> {
+		const nodeModulesDir = path.join(this.downloadFolder, 'node_modules');
+		await fsAccess(nodeModulesDir);
+		const installedPackagePaths = (await getInstalledPackageNames()).map((packageName) =>
+			path.join(nodeModulesDir, packageName),
+		);
 
-		for (const packagePath of nodePackages) {
+		for (const packagePath of installedPackagePaths) {
 			try {
 				await this.runDirectoryLoader(PackageDirectoryLoader, packagePath);
 			} catch (error) {
@@ -153,42 +151,12 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		}
 	}
 
-	/**
-	 * Returns all the names of the packages which could contain n8n nodes
-	 */
-	private async getN8nNodePackages(baseModulesPath: string): Promise<string[]> {
-		const getN8nNodePackagesRecursive = async (relativePath: string): Promise<string[]> => {
-			const results: string[] = [];
-			const nodeModulesPath = `${baseModulesPath}/${relativePath}`;
-			const nodeModules = await fsReaddir(nodeModulesPath);
-			for (const nodeModule of nodeModules) {
-				const isN8nNodesPackage = nodeModule.indexOf('n8n-nodes-') === 0;
-				const isNpmScopedPackage = nodeModule.indexOf('@') === 0;
-				if (!isN8nNodesPackage && !isNpmScopedPackage) {
-					continue;
-				}
-				if (!(await fsStat(nodeModulesPath)).isDirectory()) {
-					continue;
-				}
-				if (isN8nNodesPackage) {
-					results.push(`${baseModulesPath}/${relativePath}${nodeModule}`);
-				}
-				if (isNpmScopedPackage) {
-					results.push(...(await getN8nNodePackagesRecursive(`${relativePath}${nodeModule}/`)));
-				}
-			}
-			return results;
-		};
-		return getN8nNodePackagesRecursive('');
-	}
-
-	async loadNpmModule(packageName: string, version?: string): Promise<InstalledPackages> {
-		const downloadFolder = UserSettings.getUserN8nFolderDownloadedNodesPath();
+	async installNpmModule(packageName: string, version?: string): Promise<InstalledPackages> {
 		const command = `npm install ${packageName}${version ? `@${version}` : ''}`;
 
 		await executeCommand(command);
 
-		const finalNodeUnpackedPath = path.join(downloadFolder, 'node_modules', packageName);
+		const finalNodeUnpackedPath = path.join(this.downloadFolder, 'node_modules', packageName);
 
 		let loader: PackageDirectoryLoader;
 		try {
@@ -249,8 +217,6 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		packageName: string,
 		installedPackage: InstalledPackages,
 	): Promise<InstalledPackages> {
-		const downloadFolder = UserSettings.getUserN8nFolderDownloadedNodesPath();
-
 		const command = `npm i ${packageName}@latest`;
 
 		try {
@@ -262,7 +228,7 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 			throw error;
 		}
 
-		const finalNodeUnpackedPath = path.join(downloadFolder, 'node_modules', packageName);
+		const finalNodeUnpackedPath = path.join(this.downloadFolder, 'node_modules', packageName);
 
 		let loader: PackageDirectoryLoader;
 		try {
