@@ -120,15 +120,18 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 
 	private async loadNodesFromInstalledPackages(): Promise<void> {
 		const nodeModulesDir = path.join(this.downloadFolder, 'node_modules');
-		const installedPackagePaths = await glob('n8n-nodes-*', {
-			cwd: nodeModulesDir,
-			deep: 1,
-			onlyDirectories: true,
-		});
+		const globOptions = { cwd: nodeModulesDir, onlyDirectories: true };
+		const installedPackagePaths = [
+			...(await glob('n8n-nodes-*', { ...globOptions, deep: 1 })),
+			...(await glob('@*/n8n-nodes-*', { ...globOptions, deep: 2 })),
+		];
 
 		for (const packagePath of installedPackagePaths) {
 			try {
-				await this.runDirectoryLoader(PackageDirectoryLoader, packagePath);
+				await this.runDirectoryLoader(
+					PackageDirectoryLoader,
+					path.join(nodeModulesDir, packagePath),
+				);
 			} catch (error) {
 				ErrorReporter.error(error);
 			}
