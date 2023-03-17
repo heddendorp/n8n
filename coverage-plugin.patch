@@ -1,0 +1,12 @@
+diff --git a/cypress.config.js b/cypress.config.js
+index c38bcbc..bb8c107 100644
+--- a/cypress.config.js
++++ b/cypress.config.js
+@@ -36,6 +36,7 @@ module.exports = defineConfig({
+ 				'enable-feature': (feature) =>
+ 					fetch(BASE_URL + `/e2e/enable-feature/${feature}`, { method: 'POST' }),
+ 			});
++			require('@heddendorp/per-test-v8-cov/plugin')(on, config);
+ 		},
+ 	},
+ });

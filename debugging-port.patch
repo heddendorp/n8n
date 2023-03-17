@@ -1,0 +1,16 @@
+diff --git a/package.json b/package.json
+index 7600fd9..654fd93 100644
+--- a/package.json
++++ b/package.json
+@@ -19,9 +19,9 @@
+     "lintfix": "turbo run lintfix",
+     "optimize-svg": "find ./packages -name '*.svg' ! -name 'pipedrive.svg' -print0 | xargs -0 -P16 -L20 npx svgo",
+     "start": "run-script-os",
+-    "start:default": "cd packages/cli/bin && ./n8n",
++    "start:default": "cd packages/cli/bin && node --inspect=9222 n8n",
+     "start:tunnel": "./packages/cli/bin/n8n start --tunnel",
+-    "start:windows": "cd packages/cli/bin && n8n",
++    "start:windows": "cd packages/cli/bin && node --inspect=9222 n8n",
+     "test": "turbo run test",
+     "watch": "turbo run watch",
+     "webhook": "./packages/cli/bin/n8n webhook",

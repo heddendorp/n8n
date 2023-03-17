@@ -41,7 +41,7 @@ on:
       containers:
         description: 'Number of containers to run tests in.'
         required: false
-        default: '[1, 2, 3, 4, 5, 6, 7, 8]'
+        default: '[1]'
         type: string
     secrets:
       CYPRESS_RECORD_KEY:
@@ -54,6 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       uuid: ${{ steps.uuid.outputs.value }}
+      uid_gid: ${{ steps.get-user.outputs.uid_gid }}
     steps:
       - name: Generate unique ID 💎
         id: uuid
@@ -61,9 +62,13 @@ jobs:
         # the typical value would be something like
         # "sha-5d3fe...35d3-time-1620841214"
         run: echo "value=sha-$GITHUB_SHA-time-$(date +"%s")" >> $GITHUB_OUTPUT
+      - id: get-user
+        run: echo "::set-output name=uid_gid::$(id -u):$(id -g)"
+      - name: Output uid and gid
+        run: echo "uid:gid = ${{ steps.get-user.outputs.uid_gid }}"
 
   install:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: ['prepare']
     container:
       image: cypress/${{ inputs.run-env }}
@@ -87,7 +92,12 @@ jobs:
             /github/home/.pnpm-store
             ./node_modules
             ./packages
+            ./cypress.config.js
+            ./package.json
           key: ${{ inputs.cache-key }}
+
+      - name: Add source map build
+        run: npx -y @heddendorp/historic-analysis-helper@latest enable-n8n-sourcemaps
 
       - name: Cypress build
         uses: cypress-io/github-action@v5
@@ -101,7 +111,7 @@ jobs:
         run: pnpm cypress:install
 
   testing:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     container:
       image: cypress/${{ inputs.run-env }}
       options: --user 1001
@@ -127,7 +137,15 @@ jobs:
             /github/home/.pnpm-store
             ./node_modules
             ./packages
+            ./cypress.config.js
+            ./package.json
           key: ${{ inputs.cache-key }}
+
+      - name: Install coverage plugin
+        run: pnpm add -D -w @heddendorp/per-test-v8-cov@latest
+
+      - name: Update config to add coverage
+        run: npx -y @heddendorp/historic-analysis-helper@latest update-n8n
 
       - name: Cypress run
         uses: cypress-io/github-action@v5
@@ -136,15 +154,24 @@ jobs:
           start: pnpm start
           wait-on: 'http://localhost:5678'
           wait-on-timeout: 120 #
-          record: ${{ inputs.record }}
-          parallel: ${{ inputs.parallel }}
+          # record: ${{ inputs.record }}
+          # parallel: ${{ inputs.parallel }}
           # We have to provide custom ci-build-id key to make sure that this workflow could be run multiple times
           # in the same parent workflow
           ci-build-id: ${{ needs.prepare.outputs.uuid }}
           spec: "/__w/n8n/n8n/cypress/${{ inputs.spec }}"
           config-file: /__w/n8n/n8n/cypress.config.js
         env:
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          # CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          ELECTRON_EXTRA_LAUNCH_ARGS: '--remote-debugging-port=40500'
+          DEBUG: heddendorp:*
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           E2E_TESTS: true
           COMMIT_INFO_MESSAGE: 🌳 ${{ inputs.branch }} 🖥️ ${{ inputs.run-env }} 🤖 ${{ inputs.user }} 🗃️ ${{ inputs.spec }}
+
+      - name: 📦 Upload coverage
+        uses: actions/upload-artifact@v3
+        if: ${{ failure() }}
+        with:
+          name: coverage
+          path: ${{ github.workspace }}/coverage

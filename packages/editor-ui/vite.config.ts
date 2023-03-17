@@ -101,7 +101,7 @@ export default mergeConfig(
 		},
 		build: {
 			assetsInlineLimit: 0,
-			sourcemap: false,
+			sourcemap: true,
 			rollupOptions: {
 				output: {
 					manualChunks: {
