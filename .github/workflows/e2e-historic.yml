@@ -51,6 +51,11 @@ on:
         options:
           - chrome
           - electron
+      useHostedRunner:
+        description: 'Use a hosted runner for non coverage tests'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   # single job that generates and outputs a common id
@@ -105,7 +110,7 @@ jobs:
           build: pnpm build
 
   testing:
-    runs-on: ${{ matrix.coverage && 'self-hosted' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.coverage && 'self-hosted' || inputs.useHosted && 'ubuntu-latest' || 'self-hosted' }}
     container:
       image: cypress/${{ inputs.run-env }}
       options: --user 1001 --ipc=host
