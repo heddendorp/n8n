@@ -52,7 +52,7 @@ on:
           - chrome
           - electron
       useHostedRunner:
-        description: 'Use a hosted runner for non coverage tests'
+        description: 'Use a self hosted runner for non coverage tests'
         required: false
         default: false
         type: boolean
@@ -110,7 +110,7 @@ jobs:
           build: pnpm build
 
   testing:
-    runs-on: ${{ matrix.coverage && 'self-hosted' || inputs.useHosted && 'ubuntu-latest' || 'self-hosted' }}
+    runs-on: ${{ matrix.coverage && 'self-hosted' || (inputs.useHosted && 'self-hosted' || 'ubuntu-latest') }}
     container:
       image: cypress/${{ inputs.run-env }}
       options: --user 1001 --ipc=host
