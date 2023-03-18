@@ -180,6 +180,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           E2E_TESTS: true
 
+      - name: 🤐 Merge mochawesome reports
+        if: ${{ always() }}
+        run: npx -y mochawesome-merge ./mochawesome-report/*.json -o report.json
+
       - name: 📦 Upload coverage
         uses: actions/upload-artifact@v3
         if: ${{ failure() && matrix.coverage }}
@@ -192,7 +196,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: results-${{ matrix.coverage && 'coverage' || 'no-coverage' }}-${{ matrix.containers }}
-          path: ${{ github.workspace }}/mochawesome-report/*.json
+          path: ${{ github.workspace }}/report.json
 
   analysis:
     runs-on: ubuntu-latest
