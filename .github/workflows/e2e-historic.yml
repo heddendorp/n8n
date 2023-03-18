@@ -54,7 +54,7 @@ on:
       useHostedRunner:
         description: 'Use a hosted runner for non coverage tests'
         required: false
-        default: true
+        default: false
         type: boolean
 
 jobs:
