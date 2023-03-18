@@ -192,7 +192,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: results-${{ matrix.coverage && 'coverage' || 'no-coverage' }}-${{ matrix.containers }}
-          path: ${{ github.workspace }}/mochawesome-report/results/output.json
+          path: ${{ github.workspace }}/mochawesome-report/*.json
 
   analysis:
     runs-on: ubuntu-latest
