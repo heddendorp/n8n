@@ -1,0 +1,244 @@
+name: Timing evaluation
+run-name: Timings ${{ inputs.run }} - ${{ inputs.ref }} ➡️ ${{ inputs.compare }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'GitHub ref to test.'
+        required: false
+        type: string
+        default: 'a881512b49421e5c0dab243502bbbd41caba25a0'
+      compare:
+        description: 'Compare against this ref.'
+        required: false
+        type: string
+        default: '40a6ab814de8cff1616db4d4afb5c72eda1ba4a8'
+      run:
+        description: 'Run this execution belongs to'
+        required: false
+        type: string
+        default: 'alpha'
+      spec:
+        description: 'Specify specs.'
+        required: false
+        default: 'e2e/!(12|19|5|7)-*.cy.ts'
+        type: string
+      run-env:
+        description: 'Node env version to run tests with.'
+        required: false
+        default: included:cypress-12.6.0-node-16.18.1-chrome-110.0.5481.96-1-ff-109.0-edge-110.0.1587.41-1
+        type: choice
+        options:
+          - base:16.18.1
+          - browsers:node-16.18.1-chrome-109.0.5414.74-1-ff-109.0-edge-109.0.1518.52-1
+          - included:cypress-12.6.0-node-16.18.1-chrome-110.0.5481.96-1-ff-109.0-edge-110.0.1587.41-1
+      containers:
+        description: 'Number of containers to run tests in.'
+        required: false
+        default: '[1]'
+        type: string
+      coverage:
+        description: 'Run coverage tests.'
+        required: false
+        default: '[true]'
+        type: string
+      browser:
+        description: 'Browser to run tests in.'
+        required: true
+        default: 'chrome'
+        type: choice
+        options:
+          - chrome
+          - electron
+      useHostedRunner:
+        description: 'Use a self hosted runner for non coverage tests'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # single job that generates and outputs a common id
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      uuid: ${{ steps.uuid.outputs.value }}
+    steps:
+      - name: Generate unique ID 💎
+        id: uuid
+        # take the current commit + timestamp together
+        # the typical value would be something like
+        # "sha-5d3fe...35d3-time-1620841214"
+        run: echo "value=sha-$GITHUB_SHA-time-$(date +"%s")" >> $GITHUB_OUTPUT
+
+  install:
+    runs-on: ubuntu-latest
+    needs: ['prepare']
+    container:
+      image: cypress/${{ inputs.run-env }}
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: n8n-io/n8n
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 7.27.0
+          run_install: true
+
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            /github/home/.cache
+            /github/home/.pnpm-store
+            ./node_modules
+            ./packages
+          key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
+
+      - name: Add source map build
+        run: npx -y @heddendorp/historic-analysis-helper@latest enable-n8n-sourcemaps
+
+      - name: Cypress build
+        uses: cypress-io/github-action@v5
+        with:
+          # Disable running of tests within install job
+          runTests: false
+          install: false
+          build: pnpm build
+
+  testing:
+    runs-on: ${{ matrix.coverage && 'self-hosted' || (inputs.useHosted && 'self-hosted' || 'ubuntu-latest') }}
+    container:
+      image: cypress/${{ inputs.run-env }}
+      options: --user 1001 --ipc=host
+    needs: ['prepare', 'install']
+    strategy:
+      fail-fast: false
+      matrix:
+        containers: ${{ fromJSON(inputs.containers) }}
+        coverage: ${{ fromJSON(inputs.coverage) }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: n8n-io/n8n
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 7.27.0
+
+      - name: Restore cached pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            /github/home/.cache
+            /github/home/.pnpm-store
+            ./node_modules
+            ./packages
+          key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
+
+      - name: Install coverage plugin
+        if: ${{ matrix.coverage }}
+        run: pnpm add -D -w @heddendorp/per-test-v8-cov@latest
+
+      - name: Install mochawesome
+        run: pnpm add -D -w mochawesome
+
+      - name: Update config to add coverage
+        if: ${{ matrix.coverage }}
+        run: npx -y @heddendorp/historic-analysis-helper@latest update-n8n -c
+
+      - name: Update config to publish test results
+        if: ${{ !matrix.coverage }}
+        run: npx -y @heddendorp/historic-analysis-helper@latest update-n8n
+
+      - name: Cypress install
+        run: pnpm cypress:install
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v5
+        timeout-minutes: ${{ matrix.coverage && 70 || 40 }}
+        with:
+          install: false
+          start: pnpm start
+          wait-on: 'http://localhost:5678'
+          wait-on-timeout: 120
+          ci-build-id: ${{ needs.prepare.outputs.uuid }}
+          spec: "/__w/n8n/n8n/cypress/${{ inputs.spec }}"
+          config-file: /__w/n8n/n8n/cypress.config.js
+          browser: ${{ inputs.browser }}
+        env:
+          # CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          ELECTRON_EXTRA_LAUNCH_ARGS: '--remote-debugging-port=40500'
+          DEBUG: istanbuljs,heddendorp:*
+          NODE_DEBUG: c8
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          E2E_TESTS: true
+
+      - name: 🤐 Merge mochawesome reports
+        if: ${{ always() }}
+        run: npx -y mochawesome-merge ./mochawesome-report/*.json -o report.json
+
+      - name: 📦 Upload coverage
+        uses: actions/upload-artifact@v3
+        if: ${{ failure() && matrix.coverage }}
+        with:
+          name: coverage-${{ matrix.containers }}
+          path: ${{ github.workspace }}/coverage
+
+      - name: 📦 Upload results
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: results-${{ matrix.coverage && 'coverage' || 'no-coverage' }}-${{ matrix.containers }}
+          path: ${{ github.workspace }}/report.json
+
+  analysis:
+    runs-on: ubuntu-latest
+    needs: testing
+    if: ${{ failure() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        containers: ${{ fromJSON(inputs.containers) }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: n8n-io/n8n
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Download coverage
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-${{ matrix.containers }}
+          path: ${{ github.workspace }}/coverage
+
+      - name: list downloaded coverage
+        run: ls -la ${{ github.workspace }}/coverage
+
+      - name: 🕵🏻 Inspect coverage
+        run: |
+          npx -y @heddendorp/coverage-git-compare@latest history -p ${{ github.workspace }}/coverage -c ${{ inputs.compare }} >&1 | tee coverage-output-${{ matrix.containers }}.txt
+
+      - name: 📦 Upload coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-analysis
+          path: ${{ github.workspace }}/coverage-output-${{ matrix.containers }}.txt
+
+  # notify:
+  #   runs-on: ubuntu-latest
+  #   needs: ['analysis', 'testing']
+  #   if: ${{ always() }}
+  #   steps:
+  #     - name: Slack Notification
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  #         SLACK_MESSAGE: '${{ inputs.run }} finished \n ${{ inputs.ref }} -> ${{ inputs.compare }}'
