@@ -114,7 +114,7 @@ jobs:
     runs-on: self-hosted
     container:
       image: cypress/${{ inputs.run-env }}
-      options: --user 3601621 --ipc=host
+      options: --user root --ipc=host
     needs: ['prepare', 'install']
     strategy:
       fail-fast: false
