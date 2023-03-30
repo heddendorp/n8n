@@ -111,7 +111,7 @@ jobs:
           build: pnpm build
 
   testing:
-    runs-on: ${{ matrix.coverage && 'self-hosted' || (inputs.useHosted && 'self-hosted' || 'ubuntu-latest') }}
+    runs-on: self-hosted
     container:
       image: cypress/${{ inputs.run-env }}
       options: --user 1001 --ipc=host
