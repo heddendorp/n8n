@@ -111,10 +111,10 @@ jobs:
           build: pnpm build
 
   testing:
-    runs-on: ${{ matrix.coverage && 'self-hosted' || (inputs.useHosted && 'self-hosted' || 'ubuntu-latest') }}
+    runs-on: self-hosted
     container:
       image: cypress/${{ inputs.run-env }}
-      options: --user 1001 --ipc=host
+      options: --user root --ipc=host
     needs: ['prepare', 'install']
     strategy:
       fail-fast: false
@@ -162,7 +162,7 @@ jobs:
 
       - name: Cypress run
         uses: cypress-io/github-action@v5
-        timeout-minutes: ${{ matrix.coverage && 70 || 40 }}
+        timeout-minutes: 70
         with:
           install: false
           start: pnpm start
