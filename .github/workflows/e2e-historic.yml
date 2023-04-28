@@ -89,15 +89,15 @@ jobs:
           version: 7.27.0
           run_install: true
 
-      - name: Cache pnpm modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            /github/home/.cache
-            /github/home/.pnpm-store
-            ./node_modules
-            ./packages
-          key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
+      # - name: Cache pnpm modules
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: |
+      #       /github/home/.cache
+      #       /github/home/.pnpm-store
+      #       ./node_modules
+      #       ./packages
+      #     key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
 
       - name: Add source map build
         run: npx -y @heddendorp/historic-analysis-helper@latest enable-n8n-sourcemaps
@@ -133,15 +133,15 @@ jobs:
           version: 7.27.0
           run_install: true
 
-      - name: Restore cached pnpm modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            /github/home/.cache
-            /github/home/.pnpm-store
-            ./node_modules
-            ./packages
-          key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
+      # - name: Restore cached pnpm modules
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: |
+      #       /github/home/.cache
+      #       /github/home/.pnpm-store
+      #       ./node_modules
+      #       ./packages
+      #     key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
 
       - name: Install coverage plugin
         if: ${{ matrix.coverage }}
