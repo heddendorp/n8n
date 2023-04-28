@@ -131,7 +131,6 @@ jobs:
         uses: pnpm/action-setup@v2.2.4
         with:
           version: 7.27.0
-          run_install: true
 
       - name: Restore cached pnpm modules
         uses: actions/cache@v3
@@ -166,7 +165,6 @@ jobs:
         timeout-minutes: ${{ matrix.coverage && 70 || 40 }}
         with:
           install: false
-          build: pnpm build
           start: pnpm start
           wait-on: 'http://localhost:5678'
           wait-on-timeout: 120

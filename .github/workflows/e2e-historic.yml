@@ -89,15 +89,15 @@ jobs:
           version: 7.27.0
           run_install: true
 
-      # - name: Cache pnpm modules
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       /github/home/.cache
-      #       /github/home/.pnpm-store
-      #       ./node_modules
-      #       ./packages
-      #     key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            /github/home/.cache
+            /github/home/.pnpm-store
+            ./node_modules
+            ./packages
+          key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
 
       - name: Add source map build
         run: npx -y @heddendorp/historic-analysis-helper@latest enable-n8n-sourcemaps
@@ -131,17 +131,16 @@ jobs:
         uses: pnpm/action-setup@v2.2.4
         with:
           version: 7.27.0
-          run_install: true
 
-      # - name: Restore cached pnpm modules
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       /github/home/.cache
-      #       /github/home/.pnpm-store
-      #       ./node_modules
-      #       ./packages
-      #     key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            /github/home/.cache
+            /github/home/.pnpm-store
+            ./node_modules
+            ./packages
+          key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
 
       - name: Install coverage plugin
         if: ${{ matrix.coverage }}
@@ -166,7 +165,6 @@ jobs:
         timeout-minutes: ${{ matrix.coverage && 70 || (inputs.useHosted && 70 || 40) }}
         with:
           install: false
-          build: pnpm build
           start: pnpm start
           wait-on: 'http://localhost:5678'
           wait-on-timeout: 120
@@ -200,39 +198,39 @@ jobs:
           name: results-${{ matrix.coverage && 'coverage' || 'no-coverage' }}-${{ matrix.containers }}
           path: ${{ github.workspace }}/report.json
 
-  analysis:
-    runs-on: ubuntu-latest
-    needs: testing
-    if: ${{ failure() }}
-    strategy:
-      fail-fast: false
-      matrix:
-        containers: ${{ fromJSON(inputs.containers) }}
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          repository: n8n-io/n8n
-          ref: ${{ inputs.ref }}
-          fetch-depth: 0
+  # analysis:
+  #   runs-on: ubuntu-latest
+  #   needs: testing
+  #   if: ${{ failure() }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       containers: ${{ fromJSON(inputs.containers) }}
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         repository: n8n-io/n8n
+  #         ref: ${{ inputs.ref }}
+  #         fetch-depth: 0
 
-      - name: Download coverage
-        uses: actions/download-artifact@v3
-        with:
-          name: coverage-${{ matrix.containers }}
-          path: ${{ github.workspace }}/coverage
+  #     - name: Download coverage
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: coverage-${{ matrix.containers }}
+  #         path: ${{ github.workspace }}/coverage
 
-      - name: list downloaded coverage
-        run: ls -la ${{ github.workspace }}/coverage
+  #     - name: list downloaded coverage
+  #       run: ls -la ${{ github.workspace }}/coverage
 
-      - name: 🕵🏻 Inspect coverage
-        run: |
-          npx -y @heddendorp/coverage-git-compare@latest history -p ${{ github.workspace }}/coverage -c ${{ inputs.compare }} >&1 | tee coverage-output-${{ matrix.containers }}.txt
+  #     - name: 🕵🏻 Inspect coverage
+  #       run: |
+  #         npx -y @heddendorp/coverage-git-compare@latest history -p ${{ github.workspace }}/coverage -c ${{ inputs.compare }} >&1 | tee coverage-output-${{ matrix.containers }}.txt
 
-      - name: 📦 Upload coverage
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-analysis
-          path: ${{ github.workspace }}/coverage-output-${{ matrix.containers }}.txt
+  #     - name: 📦 Upload coverage
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: coverage-analysis
+  #         path: ${{ github.workspace }}/coverage-output-${{ matrix.containers }}.txt
 
   # notify:
   #   runs-on: ubuntu-latest
