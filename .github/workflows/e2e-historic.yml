@@ -99,9 +99,6 @@ jobs:
             ./packages
           key: ${{ inputs.ref }}-${{ inputs.run-env }}-e2e-modules
 
-      - name: Install make
-        run: sudo apt-get install g++ build-essential
-
       - name: Add source map build
         run: npx -y @heddendorp/historic-analysis-helper@latest enable-n8n-sourcemaps
 
